@@ -1,0 +1,24 @@
+{
+  "name": "twentieth-maine-form-smoke",
+  "version": "1.0.0",
+  "description": "Nightly Playwright smoke tests for the 20th Maine Co. G online enlistment form",
+  "scripts": {
+    "test": "playwright test --grep-invert @known-gap",
+    "test:nightly": "playwright test --grep-invert @known-gap",
+    "test:gaps": "playwright test --grep @known-gap",
+    "test:submit": "SUBMIT_TEST=1 playwright test tests/submit.spec.ts --project=desktop",
+    "test:headed": "playwright test --grep-invert @known-gap --headed --project=desktop",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  },
+  "private": true,
+  "overrides": {
+    "playwright-core": "1.63.0"
+  }
+}
