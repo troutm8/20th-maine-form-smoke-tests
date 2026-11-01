@@ -44,6 +44,7 @@ export class EnlistmentForm {
   readonly payCheck: Locator;
   readonly agreement: Locator;
   readonly signature: Locator;
+  readonly state: Locator;
   readonly date: Locator;
   readonly submit: Locator;
 
@@ -56,6 +57,8 @@ export class EnlistmentForm {
     this.address = f.getByLabel('Address', { exact: true });
     this.city = f.getByLabel('City', { exact: true });
     this.zip = f.getByLabel('Zip / Postal code', { exact: true });
+    // Only appears after a country with states/provinces (e.g. United States) is chosen.
+    this.state = f.getByRole('combobox', { name: /^State/ });
     this.cellPhone = f.getByRole('textbox', { name: 'Cell phone. Phone', exact: true });
     this.cellPhoneCountry = f.getByRole('button', { name: 'Cell phone. Phone. Select a country code' });
     this.homePhone = f.getByRole('textbox', { name: 'Home phone (optional). Phone', exact: true });
@@ -66,7 +69,9 @@ export class EnlistmentForm {
     this.payCheck = f.getByRole('radio', { name: /^Check mailed to Cpl\. Bolland/ });
     this.agreement = f.getByRole('checkbox', { name: /I have read and agree to the enlistment agreement/ });
     this.signature = f.getByLabel('Signature - type your full name', { exact: true });
-    this.date = f.getByRole('textbox', { name: /^Date/ });
+    // Wix renders the date picker as a button. Its name is "Date" until a date is
+    // picked, then "YYYY-MM-DD Date" (a separate "... Date Clear" button also appears).
+    this.date = f.getByRole('button', { name: /^(\d{4}-\d{2}-\d{2} )?Date$/ });
     this.submit = f.getByRole('button', { name: 'Submit' });
   }
 
@@ -95,10 +100,36 @@ export class EnlistmentForm {
     const response = await this.page.goto(FORM_PATH);
     expect(response?.status(), 'form page HTTP status').toBe(200);
     await expect(this.firstName).toBeVisible();
+    await this.waitForHydration();
   }
 
-  /** Clicks Submit. On an incomplete form Wix validates in the browser and nothing is sent. */
+  /**
+   * Wix serves the form as static HTML first and React takes it over about a
+   * second later. Clicks and typing before then are silently lost (Submit shows
+   * no errors, dropdowns don't open), so wait until React has attached to a field.
+   */
+  async waitForHydration(): Promise<void> {
+    await expect
+      .poll(() => this.firstName.evaluate(el => Object.keys(el).some(k => k.startsWith('__react'))), {
+        message: 'form JavaScript (React) did not initialise',
+        timeout: 20_000,
+      })
+      .toBe(true);
+  }
+
+  /**
+   * Clicks Submit. On an incomplete form Wix validates in the browser and nothing is sent.
+   *
+   * Focus is moved off the current field first, then we wait for Wix to react.
+   * Pressing the mouse on Submit blurs whichever field has the cursor; Wix then
+   * re-renders that field (an error message or a success state), the page reflows
+   * and Submit moves before the mouse is released, so the click is lost (see
+   * known-gaps.spec.ts). The re-render arrives a few hundred ms after the blur, so
+   * a short pause is needed before the layout is really settled.
+   */
   async clickSubmit(): Promise<void> {
+    await this.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await this.page.waitForTimeout(500);
     await this.submit.click();
   }
 
@@ -109,6 +140,13 @@ export class EnlistmentForm {
   async chooseCountry(name = 'United States'): Promise<void> {
     await this.country.click();
     await this.country.fill(name);
+    await this.page.getByRole('option', { name, exact: true }).click();
+  }
+
+  /** The State dropdown only exists once a country such as United States has been chosen. */
+  async chooseState(name = 'California'): Promise<void> {
+    await this.state.click();
+    await this.state.fill(name);
     await this.page.getByRole('option', { name, exact: true }).click();
   }
 
@@ -126,6 +164,6 @@ export class EnlistmentForm {
       weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles',
     }); // e.g. "Friday, October 30, 2026" — matches the calendar cell's aria-label
     await this.page.getByRole('gridcell', { name: today }).click();
-    await expect(this.date).not.toHaveValue('');
+    await expect(this.date).toHaveAccessibleName(/^\d{4}-\d{2}-\d{2} Date$/); // e.g. "2026-10-30 Date"
   }
 }

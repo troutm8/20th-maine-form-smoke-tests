@@ -71,11 +71,26 @@ test.describe('Required fields', () => {
     await expect(form.errorText(REQUIRED_ERRORS.country)).toBeHidden();
   });
 
+  test('choosing United States adds a required State field, which clears when picked', async () => {
+    await expect(form.state).toHaveCount(0);
+    await form.chooseCountry('United States');
+    await expect(form.state).toBeVisible();
+    await form.clickSubmit();
+    // Membership, payment and now State each show "Choose an option."
+    await expect(form.errorText(CHOOSE_OPTION_ERROR)).toHaveCount(3);
+    await form.chooseState('California');
+    await expect(form.state).toHaveValue('California');
+    await form.clickSubmit();
+    await expect(form.errorText(CHOOSE_OPTION_ERROR)).toHaveCount(2);
+    await expect(form.errorText(REQUIRED_ERRORS.country)).toBeHidden();
+  });
+
   test('cell phone with +1 country code clears its error', async () => {
     await form.clickSubmit();
     await form.chooseCellPhoneCountryUS();
     await form.cellPhone.fill('4085551234');
     await form.clickSubmit();
+    await expect(form.errorText(REQUIRED_ERRORS.firstName)).toBeVisible(); // validation ran
     await expect(form.cellPhone).not.toHaveAttribute('aria-invalid', 'true');
     await expect(form.errorText(REQUIRED_ERRORS.cellPhone)).toBeHidden();
   });
@@ -120,7 +135,9 @@ test.describe('Email format', () => {
     test(`accepts "${good}"`, async () => {
       await form.email.fill(good);
       await form.clickSubmit();
+      await expect(form.errorText(REQUIRED_ERRORS.firstName)).toBeVisible(); // validation ran
       await expect(form.email).not.toHaveAttribute('aria-invalid', 'true');
+      await expect(form.errorText(REQUIRED_ERRORS.email)).toBeHidden();
     });
   }
 });
@@ -143,7 +160,9 @@ test.describe('Cell phone format (with +1 selected)', () => {
     test(`accepts "${good}"`, async () => {
       await form.cellPhone.fill(good);
       await form.clickSubmit();
+      await expect(form.errorText(REQUIRED_ERRORS.firstName)).toBeVisible(); // validation ran
       await expect(form.cellPhone).not.toHaveAttribute('aria-invalid', 'true');
+      await expect(form.errorText(INVALID_PHONE_ERROR)).toBeHidden();
     });
   }
 });

@@ -20,6 +20,7 @@ test('complete form submits and shows the confirmation message', async ({ page }
   await form.chooseCountry('United States');
   await form.address.fill('123 Test St. (automated test - please ignore)');
   await form.city.fill('San Jose');
+  await form.chooseState('California'); // State appears once United States is chosen
   await form.zip.fill('95127');
   await form.chooseCellPhoneCountryUS();
   await form.cellPhone.fill('4085550100');
